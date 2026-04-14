@@ -38,6 +38,21 @@ To reduce noise, the mod includes:
 - a restore-defaults button in the settings UI
 - a configurable rolling call buffer
 
+## Load phase announcements
+
+CrashCatcher logs startup and load phases as they happen so you can see what the game is doing before the world fully appears.
+
+During those phases it will announce stages like:
+
+- creating mod classes
+- resolving implied defs
+- reading save data
+- loading game data
+- updating long events
+- finalizing game initialization
+
+Those announcements are recorded in the call trail and also written to the log so you can follow the pre-load sequence without waiting for the first map or crash.
+
 ## Settings
 
 CrashCatcher exposes the following settings in-game:

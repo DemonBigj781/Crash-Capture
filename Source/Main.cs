@@ -496,6 +496,243 @@ namespace CrashCatcher
         }
     }
 
+    internal static class LoadPhaseTracker
+    {
+        private static readonly object gate = new object();
+        private static string currentPhase;
+
+        internal static void Announce(string phase, string detail = null)
+        {
+            if (string.IsNullOrWhiteSpace(phase))
+            {
+                return;
+            }
+
+            try
+            {
+                lock (gate)
+                {
+                    if (string.Equals(currentPhase, phase, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return;
+                    }
+
+                    currentPhase = phase;
+                }
+
+                var text = string.IsNullOrWhiteSpace(detail)
+                    ? $"[CrashCatcher] Load phase: {phase}"
+                    : $"[CrashCatcher] Load phase: {phase} :: {detail}";
+
+                Log.Message(text);
+                CallTrail.Record("load", "CrashCatcher.LoadPhase", string.IsNullOrWhiteSpace(detail) ? phase : $"{phase} :: {detail}");
+                TelemetryRecorder.RecordPhase(phase, detail);
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    internal static class InputTelemetry
+    {
+        internal static void Record(string action, string context, string detail = null)
+        {
+            TelemetryRecorder.RecordInput(action, context, detail);
+        }
+    }
+
+    [HarmonyPatch(typeof(Verse.UIRoot_Entry), nameof(Verse.UIRoot_Entry.Init))]
+    public static class UIRootEntryInitGuard
+    {
+        public static void Prefix()
+        {
+            TelemetryRecorder.RecordPhase("Main menu entered");
+        }
+    }
+
+    [HarmonyPatch(typeof(RimWorld.MainMenuDrawer), nameof(RimWorld.MainMenuDrawer.DoMainMenuControls))]
+    public static class MainMenuDrawerDoMainMenuControlsGuard
+    {
+        public static void Prefix()
+        {
+            TelemetryRecorder.RecordInput("Opened", "MainMenu", "MainMenuControls");
+        }
+    }
+
+    [HarmonyPatch(typeof(Verse.WindowStack), nameof(Verse.WindowStack.Add))]
+    public static class WindowStackAddTelemetryGuard
+    {
+        public static void Prefix(Verse.Window window)
+        {
+            if (window == null)
+            {
+                return;
+            }
+
+            var name = window.GetType().Name;
+            if (name.StartsWith("Dialog_", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith("Page_", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith("Screen_", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith("MainTabWindow_", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith("FloatMenu", StringComparison.OrdinalIgnoreCase))
+            {
+                TelemetryRecorder.RecordInput("Opened", "WindowStack", name);
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(RimWorld.MainTabsRoot), nameof(RimWorld.MainTabsRoot.ToggleTab))]
+    public static class MainTabsRootToggleTabTelemetryGuard
+    {
+        public static void Prefix(RimWorld.MainButtonDef newTab)
+        {
+            if (newTab != null)
+            {
+                TelemetryRecorder.RecordInput("Clicked", "MainTab", newTab.defName);
+            }
+            else
+            {
+                TelemetryRecorder.RecordInput("Clicked", "MainTab", "Close");
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(RimWorld.Page_ConfigureStartingPawns), nameof(RimWorld.Page_ConfigureStartingPawns.PostOpen))]
+    public static class PageConfigureStartingPawnsPostOpenTelemetryGuard
+    {
+        public static void Prefix()
+        {
+            TelemetryRecorder.RecordPhase("Placing pawns");
+        }
+    }
+
+    [HarmonyPatch(typeof(RimWorld.Planet.WorldGenerator), nameof(RimWorld.Planet.WorldGenerator.GenerateWorld))]
+    public static class WorldGeneratorGenerateWorldTelemetryGuard
+    {
+        public static void Prefix()
+        {
+            TelemetryRecorder.RecordPhase("Generating world");
+        }
+
+        public static void Postfix(RimWorld.Planet.World __result)
+        {
+            if (__result != null)
+            {
+                TelemetryRecorder.RecordPhase("World generated");
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Verse.PlayDataLoader), nameof(Verse.PlayDataLoader.LoadAllPlayData))]
+    public static class PlayDataLoaderLoadAllPlayDataTelemetryGuard
+    {
+        public static void Prefix()
+        {
+            TelemetryRecorder.RecordPhase("Loading play data");
+        }
+    }
+
+    [HarmonyPatch(typeof(Verse.MapGenerator), nameof(Verse.MapGenerator.GenerateMap))]
+    public static class MapGeneratorGenerateMapTelemetryGuard
+    {
+        public static void Prefix()
+        {
+            TelemetryRecorder.RecordPhase("Generating map");
+        }
+
+        public static void Postfix(Verse.Map __result)
+        {
+            if (__result != null)
+            {
+                TelemetryRecorder.RecordPhase("Map generated");
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Verse.MapGenerator), nameof(Verse.MapGenerator.GenerateContentsIntoMap))]
+    public static class MapGeneratorGenerateContentsIntoMapTelemetryGuard
+    {
+        public static void Prefix()
+        {
+            TelemetryRecorder.RecordPhase("Generating terrain");
+        }
+
+        public static void Postfix()
+        {
+            TelemetryRecorder.RecordPhase("Terrain generated");
+        }
+    }
+
+    internal static class TelemetryRecorder
+    {
+        private const int TrailLimit = 120;
+        private static readonly object gate = new object();
+        private static readonly List<string> inputEvents = new List<string>();
+        private static readonly List<string> loadPhases = new List<string>();
+        private static DateTimeOffset sessionStart = DateTimeOffset.UtcNow;
+
+        internal static void ResetSession()
+        {
+            lock (gate)
+            {
+                sessionStart = DateTimeOffset.UtcNow;
+                inputEvents.Clear();
+                loadPhases.Clear();
+            }
+        }
+
+        internal static void RecordInput(string action, string context, string detail = null)
+        {
+            lock (gate)
+            {
+                inputEvents.Add(FormatEntry("input", context, action, detail));
+                Trim(inputEvents);
+            }
+        }
+
+        internal static void RecordPhase(string phase, string detail = null)
+        {
+            lock (gate)
+            {
+                loadPhases.Add(FormatEntry("phase", "load", phase, detail));
+                Trim(loadPhases);
+            }
+        }
+
+        internal static IReadOnlyList<string> SnapshotInputs()
+        {
+            lock (gate)
+            {
+                return inputEvents.ToList();
+            }
+        }
+
+        internal static IReadOnlyList<string> SnapshotPhases()
+        {
+            lock (gate)
+            {
+                return loadPhases.ToList();
+            }
+        }
+
+        private static string FormatEntry(string kind, string context, string action, string detail)
+        {
+            var elapsed = DateTimeOffset.UtcNow - sessionStart;
+            return string.IsNullOrWhiteSpace(detail)
+                ? $"[{elapsed:mm\\:ss\\.fff}] {kind}:{context}:{action}"
+                : $"[{elapsed:mm\\:ss\\.fff}] {kind}:{context}:{action} :: {detail}";
+        }
+
+        private static void Trim(List<string> entries)
+        {
+            while (entries.Count > TrailLimit)
+            {
+                entries.RemoveAt(0);
+            }
+        }
+    }
+
     [StaticConstructorOnStartup]
     public static class Start
     {
@@ -562,6 +799,7 @@ namespace CrashCatcher
 
         public static void Prefix()
         {
+            LoadPhaseTracker.Announce("Resolving implied defs");
             CallTrail.Record("load", "DefGenerator.GenerateImpliedDefs_PreResolve");
         }
 
@@ -959,6 +1197,7 @@ namespace CrashCatcher
     {
         public static void Prefix()
         {
+            LoadPhaseTracker.Announce("Starting new game");
             CallTrail.Record("load", "Game.InitNewGame");
             CrashCatcherHooks.TryLatchPendingTextureWarning();
             if (FirstTickGuard.crashLatched)
@@ -982,6 +1221,7 @@ namespace CrashCatcher
     {
         public static void Prefix()
         {
+            LoadPhaseTracker.Announce("Loading game");
             CallTrail.Record("load", "Game.LoadGame");
             CrashCatcherHooks.TryLatchPendingTextureWarning();
             if (FirstTickGuard.crashLatched)
@@ -1005,6 +1245,7 @@ namespace CrashCatcher
     {
         public static void Prefix()
         {
+            LoadPhaseTracker.Announce("Finalizing game init");
             CallTrail.Record("load", "Game.FinalizeInit");
             CrashCatcherHooks.TryLatchPendingTextureWarning();
             if (FirstTickGuard.crashLatched)
@@ -1413,6 +1654,7 @@ namespace CrashCatcher
     {
         public static void Prefix()
         {
+            LoadPhaseTracker.Announce("Updating long events");
             CrashCatcherHooks.TryLatchPendingTextureWarning();
             if (FirstTickGuard.crashLatched)
             {
@@ -2310,6 +2552,11 @@ namespace CrashCatcher
     [HarmonyPatch(typeof(LoadedModManager), nameof(LoadedModManager.CreateModClasses))]
     public static class CreateModClassesGuard
     {
+        public static void Prefix()
+        {
+            LoadPhaseTracker.Announce("Creating mod classes");
+        }
+
         public static Exception Finalizer(Exception __exception)
         {
             if (__exception == null) return null;
@@ -2525,6 +2772,18 @@ namespace CrashCatcher
             builder.AppendLine();
             builder.AppendLine(result.Error?.ToString() ?? "No exception was captured.");
             builder.AppendLine();
+            builder.AppendLine("--- Input / menu telemetry ---");
+            foreach (var line in TelemetryRecorder.SnapshotInputs())
+            {
+                builder.AppendLine(line);
+            }
+            builder.AppendLine();
+            builder.AppendLine("--- Load phase telemetry ---");
+            foreach (var line in TelemetryRecorder.SnapshotPhases())
+            {
+                builder.AppendLine(line);
+            }
+            builder.AppendLine();
             builder.AppendLine("--- Last 100 calls ---");
             builder.AppendLine(CallTrail.Dump());
 
@@ -2574,6 +2833,7 @@ namespace CrashCatcher
     {
         public static void Prefix(string saveFileName)
         {
+            LoadPhaseTracker.Announce("Reading save data", saveFileName);
             CallTrail.Record("load", "GameDataSaveLoader.LoadGame", saveFileName);
         }
 
@@ -2961,7 +3221,24 @@ namespace CrashCatcher
                 var dir = Path.Combine(GenFilePaths.SaveDataFolderPath, "CrashCatcher");
                 Directory.CreateDirectory(dir);
                 LastReportPath = Path.Combine(dir, "FirstTickCrash.log");
-                File.WriteAllText(LastReportPath, exception + "\n\n--- Last 100 calls ---\n" + CallTrail.Dump());
+                var builder = new StringBuilder();
+                builder.AppendLine(exception.ToString());
+                builder.AppendLine();
+                builder.AppendLine("--- Input / menu telemetry ---");
+                foreach (var line in TelemetryRecorder.SnapshotInputs())
+                {
+                    builder.AppendLine(line);
+                }
+                builder.AppendLine();
+                builder.AppendLine("--- Load phase telemetry ---");
+                foreach (var line in TelemetryRecorder.SnapshotPhases())
+                {
+                    builder.AppendLine(line);
+                }
+                builder.AppendLine();
+                builder.AppendLine("--- Last 100 calls ---");
+                builder.AppendLine(CallTrail.Dump());
+                File.WriteAllText(LastReportPath, builder.ToString());
             }
             catch (Exception ex)
             {
@@ -3014,6 +3291,15 @@ namespace CrashCatcher
             {
                 Log.Error($"[CrashCatcher] Failed to show pause notice:\n{ex}");
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(Verse.UIRoot_Entry), nameof(Verse.UIRoot_Entry.Init))]
+    public static class UIRootEntryInitTelemetryGuard
+    {
+        public static void Prefix()
+        {
+            TelemetryRecorder.RecordPhase("Main menu entered");
         }
     }
 
