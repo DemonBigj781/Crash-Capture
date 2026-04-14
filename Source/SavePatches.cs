@@ -190,7 +190,7 @@ namespace CrashCatcher
             }
             catch (Exception cleanupEx)
             {
-                Log.Warning($"[CrashCatcher] Dry-run cleanup failed: {cleanupEx.Message}");
+                Logger.Warning($"Dry-run cleanup failed: {cleanupEx.Message}");
                 CallTrail.Record("save", "CrashCatcher.SaveDryRun.Cleanup", $"{fileName} :: cleanup failed :: {cleanupEx.Message}");
             }
         }
@@ -231,9 +231,6 @@ namespace CrashCatcher
             {
                 builder.AppendLine(line);
             }
-            builder.AppendLine();
-            builder.AppendLine("--- Last 100 calls ---");
-            builder.AppendLine(CallTrail.Dump());
 
             if (!string.IsNullOrWhiteSpace(result.DebugXml))
             {
@@ -242,7 +239,7 @@ namespace CrashCatcher
                 builder.AppendLine(result.DebugXml);
             }
 
-            File.WriteAllText(LastReportPath, builder.ToString());
+            Logger.WriteAllText(LastReportPath, builder.ToString());
         }
     }
 
@@ -271,7 +268,7 @@ namespace CrashCatcher
             }
             else
             {
-                Log.Warning(text);
+                Logger.Warning(text);
             }
         }
     }

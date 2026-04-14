@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Threading;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using HarmonyLib;
 using RimWorld;
@@ -49,7 +50,7 @@ namespace CrashCatcher
             PauseNotice.Queue(exception);
             CrashCatcherHooks.OpenWatchdogGate();
             PauseNotice.TryShow();
-            Log.Error($"[CrashCatcher] Crash latched from {sourceKey}:\n{exception}");
+            Logger.Error(exception, $"Crash latched from {sourceKey}");
         }
     }
 
@@ -81,7 +82,7 @@ namespace CrashCatcher
             AppDomain.CurrentDomain.ReflectionOnlyAssemblyResolve += OnReflectionOnlyAssemblyResolve;
             AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
             Application.wantsToQuit += OnWantsToQuit;
-            Log.Message("[CrashCatcher] Log hook installed.");
+            Logger.Message("Log hook installed.");
         }
 
         private static void WatchdogLoop()
@@ -147,7 +148,7 @@ namespace CrashCatcher
             }
             catch (Exception ex)
             {
-                Log.Warning($"[CrashCatcher] Reflection-only resolve failed for {args.Name}: {ex.Message}");
+                Logger.Warning($"Reflection-only resolve failed for {args.Name}: {ex.Message}");
             }
 
             return null;
@@ -161,7 +162,7 @@ namespace CrashCatcher
         internal static void RequestQuit()
         {
             Interlocked.Exchange(ref quitRequestArmed, 1);
-            Log.Message("[CrashCatcher] Close game requested.");
+            Logger.Message("Close game requested.");
             Application.Quit();
             ThreadPool.QueueUserWorkItem(_ =>
             {
@@ -170,7 +171,7 @@ namespace CrashCatcher
                     Thread.Sleep(1500);
                     if (Interlocked.Exchange(ref quitRequestArmed, 0) == 1)
                     {
-                        Log.Warning("[CrashCatcher] Close game fallback forcing process exit.");
+                        Logger.Warning("Close game fallback forcing process exit.");
                         Environment.Exit(0);
                     }
                 }
@@ -201,7 +202,7 @@ namespace CrashCatcher
 
             CrashBackdrop.EnsureVisible();
             PauseNotice.TryShow();
-            Log.Message("[CrashCatcher] Quit blocked by fail-safe latch.");
+            Logger.Message("Quit blocked by fail-safe latch.");
             return false;
         }
 
@@ -212,10 +213,7 @@ namespace CrashCatcher
                 return;
             }
 
-            var isTextureCompressionWarning =
-                condition.Contains("Compress will not work", StringComparison.OrdinalIgnoreCase) ||
-                condition.Contains("dimensions are not multiples of 4", StringComparison.OrdinalIgnoreCase) ||
-                condition.Contains("Texture '' has dimensions", StringComparison.OrdinalIgnoreCase);
+            var isTextureCompressionWarning = IsMeaningfulTextureCompressionWarning(condition);
 
             if (type == LogType.Warning && !isTextureCompressionWarning && !CrashCatcherFilters.IsEnabled("UnityLogWarnings"))
             {
@@ -295,6 +293,35 @@ namespace CrashCatcher
             CrashCrashHandler.Latch(exception, "TextureWarningEscalation");
         }
 
+        private static bool IsMeaningfulTextureCompressionWarning(string condition)
+        {
+            if (condition.NullOrEmpty())
+            {
+                return false;
+            }
+
+            if (!condition.Contains("Compress will not work", StringComparison.OrdinalIgnoreCase) &&
+                !condition.Contains("dimensions are not multiples of 4", StringComparison.OrdinalIgnoreCase) &&
+                !condition.Contains("Texture", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (condition.Contains("Texture '' has dimensions", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var match = Regex.Match(condition, @"Texture\s+'([^']+)'", RegexOptions.IgnoreCase);
+            if (match.Success)
+            {
+                return !string.IsNullOrWhiteSpace(match.Groups[1].Value);
+            }
+
+            return condition.Contains("dimensions are not multiples of 4", StringComparison.OrdinalIgnoreCase) ||
+                   condition.Contains("Compress will not work", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static string GetManagedDirectory()
         {
             try
@@ -346,14 +373,36 @@ namespace CrashCatcher
                 {
                     builder.AppendLine(line);
                 }
-                builder.AppendLine();
-                builder.AppendLine("--- Last 100 calls ---");
-                builder.AppendLine(CallTrail.Dump());
-                File.WriteAllText(LastReportPath, builder.ToString());
+                Logger.WriteAllText(LastReportPath, builder.ToString());
+                StackTraceWriter.Write(dir);
             }
             catch (Exception ex)
             {
-                Log.Error($"[CrashCatcher] Failed to write crash report:\n{ex}");
+                Logger.Error(ex, "Failed to write crash report");
+            }
+        }
+    }
+
+    internal static class StackTraceWriter
+    {
+        internal static string LastReportPath { get; private set; }
+
+        internal static void Write(string dir)
+        {
+            try
+            {
+                LastReportPath = Path.Combine(dir, "StackTrace.log");
+                var builder = new System.Text.StringBuilder();
+                builder.AppendLine("CrashCatcher stack trace snapshot");
+                builder.AppendLine($"Generated: {DateTime.Now:O}");
+                builder.AppendLine();
+                builder.AppendLine("--- Last 100 calls ---");
+                builder.AppendLine(CallTrail.Dump());
+                Logger.WriteAllText(LastReportPath, builder.ToString());
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Failed to write stack trace snapshot");
             }
         }
     }

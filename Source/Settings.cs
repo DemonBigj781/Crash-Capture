@@ -19,6 +19,13 @@ namespace CrashCatcher
     public sealed class CrashCatcherMod : Mod
     {
         private CrashCatcherSettings settings;
+        private const int TabButtonsHeight = 35;
+        private enum ShortcutSettingsTab
+        {
+            ButtonCombos,
+            TextSentences
+        }
+        private static ShortcutSettingsTab selectedShortcutTab = ShortcutSettingsTab.ButtonCombos;
         private static readonly Dictionary<string, string> FriendlyFilterLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             { "FirstTickGuard", "First world tick" },
@@ -107,6 +114,19 @@ namespace CrashCatcher
             changed |= settings.AutoArmEnabled != previousAutoArmEnabled;
             listing.GapLine();
 
+            listing.Label("CrashCatcher shortcuts");
+            var tabRect = listing.GetRect(TabButtonsHeight);
+            DrawShortcutTabs(tabRect);
+            if (selectedShortcutTab == ShortcutSettingsTab.ButtonCombos)
+            {
+                DrawButtonCombosTab(listing, ref changed, settings);
+            }
+            else
+            {
+                DrawTextSentencesTab(listing, ref changed, settings);
+            }
+            listing.GapLine();
+
             listing.Label("CrashCatcher recording settings");
             listing.GapLine();
             var previousRollingCallCount = settings.RollingCallCount;
@@ -132,37 +152,6 @@ namespace CrashCatcher
             changed |= !string.Equals(previousTypeIgnoreBuffer, settings.ExceptionTypeIgnoreBuffer, StringComparison.Ordinal);
             changed |= !string.Equals(previousMessageIgnoreBuffer, settings.ExceptionMessageIgnoreBuffer, StringComparison.Ordinal);
             changed |= !string.Equals(previousCallSubstringIgnoreBuffer, settings.CallSubstringIgnoreBuffer, StringComparison.Ordinal);
-            listing.GapLine();
-            listing.Label("Hover definition copy");
-            var previousHoverDefinitionCopy = settings.EnableHoverDefinitionCopy;
-            var previousHoverDebugContext = settings.HoverCopyIncludeDebugContext;
-            var previousHoverParentChain = settings.HoverCopyIncludeParentChain;
-            var previousHoverCursorPosition = settings.HoverCopyIncludeCursorPosition;
-            var previousTickSequenceRecording = settings.EnableTickSequenceRecording;
-            var previousTickSequenceSummaryToClipboard = settings.CopyTickSequenceSummaryToClipboard;
-            var previousTickSequenceIncludePhases = settings.IncludeLiveGameLoopPhases;
-            var previousTickSequenceIncludeMapTickEvents = settings.IncludeMapTickEvents;
-            var previousTickSequenceIncludeThingComponentTickEvents = settings.IncludeThingComponentTickEvents;
-            listing.CheckboxLabeled("Enable hover definition copy (Ctrl+Shift+C)", ref settings.EnableHoverDefinitionCopy);
-            listing.CheckboxLabeled("Include debug context", ref settings.HoverCopyIncludeDebugContext);
-            listing.CheckboxLabeled("Copy parent chain", ref settings.HoverCopyIncludeParentChain);
-            listing.CheckboxLabeled("Copy cursor position", ref settings.HoverCopyIncludeCursorPosition);
-            changed |= settings.EnableHoverDefinitionCopy != previousHoverDefinitionCopy;
-            changed |= settings.HoverCopyIncludeDebugContext != previousHoverDebugContext;
-            changed |= settings.HoverCopyIncludeParentChain != previousHoverParentChain;
-            changed |= settings.HoverCopyIncludeCursorPosition != previousHoverCursorPosition;
-            listing.GapLine();
-            listing.Label("Tick sequence recording");
-            listing.CheckboxLabeled("Enable tick sequence recording (Ctrl+Shift+X)", ref settings.EnableTickSequenceRecording);
-            listing.CheckboxLabeled("Copy summary to clipboard", ref settings.CopyTickSequenceSummaryToClipboard);
-            listing.CheckboxLabeled("Include live loop phase labels", ref settings.IncludeLiveGameLoopPhases);
-            listing.CheckboxLabeled("Include map tick events", ref settings.IncludeMapTickEvents);
-            listing.CheckboxLabeled("Include thing component tick events", ref settings.IncludeThingComponentTickEvents);
-            changed |= settings.EnableTickSequenceRecording != previousTickSequenceRecording;
-            changed |= settings.CopyTickSequenceSummaryToClipboard != previousTickSequenceSummaryToClipboard;
-            changed |= settings.IncludeLiveGameLoopPhases != previousTickSequenceIncludePhases;
-            changed |= settings.IncludeMapTickEvents != previousTickSequenceIncludeMapTickEvents;
-            changed |= settings.IncludeThingComponentTickEvents != previousTickSequenceIncludeThingComponentTickEvents;
             if (listing.ButtonText("Restore defaults"))
             {
                 settings.ResetToDefaults();
@@ -189,6 +178,60 @@ namespace CrashCatcher
             }
 
             return key;
+        }
+
+        private static void DrawShortcutTabs(Rect tabRect)
+        {
+            var halfWidth = tabRect.width / 2f;
+            var leftRect = new Rect(tabRect.x, tabRect.y, halfWidth - 2f, tabRect.height);
+            var rightRect = new Rect(tabRect.x + halfWidth + 2f, tabRect.y, halfWidth - 2f, tabRect.height);
+
+            if (Widgets.ButtonText(leftRect, "Button Combos"))
+            {
+                selectedShortcutTab = ShortcutSettingsTab.ButtonCombos;
+            }
+
+            if (Widgets.ButtonText(rightRect, "Text / Sentences"))
+            {
+                selectedShortcutTab = ShortcutSettingsTab.TextSentences;
+            }
+        }
+
+        private static void DrawButtonCombosTab(Listing_Standard listing, ref bool changed, CrashCatcherSettings settings)
+        {
+            var previousHoverDefinitionCopy = settings.EnableHoverDefinitionCopy;
+            var previousTickSequenceRecording = settings.EnableTickSequenceRecording;
+            listing.CheckboxLabeled("Enable hover definition copy (Ctrl+Shift+C)", ref settings.EnableHoverDefinitionCopy);
+            listing.CheckboxLabeled("Enable tick sequence recording (Ctrl+Shift+X)", ref settings.EnableTickSequenceRecording);
+            changed |= settings.EnableHoverDefinitionCopy != previousHoverDefinitionCopy;
+            changed |= settings.EnableTickSequenceRecording != previousTickSequenceRecording;
+        }
+
+        private static void DrawTextSentencesTab(Listing_Standard listing, ref bool changed, CrashCatcherSettings settings)
+        {
+            var previousHoverDebugContext = settings.HoverCopyIncludeDebugContext;
+            var previousHoverParentChain = settings.HoverCopyIncludeParentChain;
+            var previousHoverCursorPosition = settings.HoverCopyIncludeCursorPosition;
+            var previousTickSequenceSummaryToClipboard = settings.CopyTickSequenceSummaryToClipboard;
+            var previousTickSequenceIncludePhases = settings.IncludeLiveGameLoopPhases;
+            var previousTickSequenceIncludeMapTickEvents = settings.IncludeMapTickEvents;
+            var previousTickSequenceIncludeThingComponentTickEvents = settings.IncludeThingComponentTickEvents;
+
+            listing.CheckboxLabeled("Include debug context", ref settings.HoverCopyIncludeDebugContext);
+            listing.CheckboxLabeled("Copy parent chain", ref settings.HoverCopyIncludeParentChain);
+            listing.CheckboxLabeled("Copy cursor position", ref settings.HoverCopyIncludeCursorPosition);
+            listing.CheckboxLabeled("Copy summary to clipboard", ref settings.CopyTickSequenceSummaryToClipboard);
+            listing.CheckboxLabeled("Include live loop phase labels", ref settings.IncludeLiveGameLoopPhases);
+            listing.CheckboxLabeled("Include map tick events", ref settings.IncludeMapTickEvents);
+            listing.CheckboxLabeled("Include thing component tick events", ref settings.IncludeThingComponentTickEvents);
+
+            changed |= settings.HoverCopyIncludeDebugContext != previousHoverDebugContext;
+            changed |= settings.HoverCopyIncludeParentChain != previousHoverParentChain;
+            changed |= settings.HoverCopyIncludeCursorPosition != previousHoverCursorPosition;
+            changed |= settings.CopyTickSequenceSummaryToClipboard != previousTickSequenceSummaryToClipboard;
+            changed |= settings.IncludeLiveGameLoopPhases != previousTickSequenceIncludePhases;
+            changed |= settings.IncludeMapTickEvents != previousTickSequenceIncludeMapTickEvents;
+            changed |= settings.IncludeThingComponentTickEvents != previousTickSequenceIncludeThingComponentTickEvents;
         }
     }
 

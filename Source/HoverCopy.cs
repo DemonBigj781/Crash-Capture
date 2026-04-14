@@ -9,10 +9,41 @@ namespace CrashCatcher
     internal static class HoverCopyState
     {
         private static string hoveredDefinition = string.Empty;
+        private static string hoveredControlLabel = string.Empty;
+        private static string hoveredSource = string.Empty;
         private static string hoveredWindow = string.Empty;
         private static string hoveredWindowType = string.Empty;
         private static string hoveredCursor = string.Empty;
         private static int hoveredUniqueId;
+
+        internal static void CaptureButton(Rect rect, string label)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(label))
+                {
+                    return;
+                }
+
+                if (!Mouse.IsOver(rect) && !DebugViewSettings.drawTooltipEdges)
+                {
+                    return;
+                }
+
+                hoveredControlLabel = label;
+                hoveredDefinition = label;
+                hoveredSource = "button";
+                hoveredCursor = Event.current != null ? $"{Event.current.mousePosition.x:0.##}, {Event.current.mousePosition.y:0.##}" : string.Empty;
+
+                var window = Find.WindowStack?.currentlyDrawnWindow;
+                hoveredWindow = window?.optionalTitle ?? string.Empty;
+                hoveredWindowType = window?.GetType().FullName ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[CrashCatcher] Failed to capture hovered button:\n{ex}");
+            }
+        }
 
         internal static void Capture(Rect rect, TipSignal tip)
         {
@@ -29,6 +60,8 @@ namespace CrashCatcher
                 }
 
                 hoveredDefinition = ResolveTipText(tip);
+                hoveredControlLabel = string.Empty;
+                hoveredSource = "tooltip";
                 hoveredUniqueId = tip.uniqueId;
                 hoveredCursor = Event.current != null ? $"{Event.current.mousePosition.x:0.##}, {Event.current.mousePosition.y:0.##}" : string.Empty;
 
@@ -73,6 +106,11 @@ namespace CrashCatcher
             var builder = new StringBuilder();
             builder.AppendLine("Hovered UI element:");
             builder.AppendLine($"Definition: {hoveredDefinition}");
+            if (!string.IsNullOrWhiteSpace(hoveredControlLabel))
+            {
+                builder.AppendLine($"Control label: {hoveredControlLabel}");
+            }
+            builder.AppendLine($"Source: {hoveredSource}");
 
             if (CrashCatcherModSettingsAccessor.HoverCopyIncludeDebugContext)
             {
@@ -123,6 +161,16 @@ namespace CrashCatcher
         private static void Postfix(Rect rect, TipSignal tip)
         {
             HoverCopyState.Capture(rect, tip);
+        }
+    }
+
+    [HarmonyPatch(typeof(Widgets), nameof(Widgets.ButtonText), new[] { typeof(Rect), typeof(string), typeof(bool), typeof(bool), typeof(Color), typeof(bool), typeof(TextAnchor?) })]
+    internal static class WidgetsButtonTextCapturePatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix(Rect rect, string label)
+        {
+            HoverCopyState.CaptureButton(rect, label);
         }
     }
 
