@@ -938,6 +938,7 @@ namespace CrashCatcher
     {
         public static void Prefix()
         {
+            TelemetryRecorder.RecordPhase("Entering live game loop");
             CallTrail.Record("tick", "Game.UpdateEntry");
             CrashCatcherHooks.TryLatchPendingTextureWarning();
             if (FirstTickGuard.crashLatched)
@@ -961,6 +962,7 @@ namespace CrashCatcher
     {
         public static void Prefix()
         {
+            TelemetryRecorder.RecordPhase("Live game loop update");
             CallTrail.Record("tick", "Game.UpdatePlay");
             CrashCatcherHooks.TryLatchPendingTextureWarning();
             if (FirstTickGuard.crashLatched)
@@ -984,6 +986,7 @@ namespace CrashCatcher
     {
         public static void Prefix()
         {
+            TelemetryRecorder.RecordPhase("Live map update");
             CallTrail.Record("map", "Map.MapUpdate");
             CrashCatcherHooks.TryLatchPendingTextureWarning();
             if (FirstTickGuard.crashLatched)
@@ -998,6 +1001,7 @@ namespace CrashCatcher
     {
         public static void Prefix()
         {
+            TelemetryRecorder.RecordPhase("Live map pre-tick");
             CallTrail.Record("map", "Map.MapPreTick");
             CrashCatcherHooks.TryLatchPendingTextureWarning();
             if (FirstTickGuard.crashLatched)
@@ -1021,6 +1025,7 @@ namespace CrashCatcher
     {
         public static void Prefix()
         {
+            TelemetryRecorder.RecordPhase("Live map post-tick");
             CallTrail.Record("map", "Map.MapPostTick");
             CrashCatcherHooks.TryLatchPendingTextureWarning();
             if (FirstTickGuard.crashLatched)
@@ -1044,6 +1049,7 @@ namespace CrashCatcher
     {
         public static void Prefix(Map map)
         {
+            TelemetryRecorder.RecordPhase("Live map component tick", map?.Parent?.Label ?? map?.ToString());
             CrashCatcherHooks.TryLatchPendingTextureWarning();
             if (FirstTickGuard.crashLatched)
             {
@@ -1066,6 +1072,7 @@ namespace CrashCatcher
     {
         public static void Prefix(Map map)
         {
+            TelemetryRecorder.RecordPhase("Live map component update", map?.Parent?.Label ?? map?.ToString());
             CrashCatcherHooks.TryLatchPendingTextureWarning();
             if (FirstTickGuard.crashLatched)
             {
@@ -1088,6 +1095,7 @@ namespace CrashCatcher
     {
         public static void Prefix(Map map)
         {
+            TelemetryRecorder.RecordPhase("Live map component finalize init", map?.Parent?.Label ?? map?.ToString());
             CrashCatcherHooks.TryLatchPendingTextureWarning();
             if (FirstTickGuard.crashLatched)
             {
@@ -1110,6 +1118,7 @@ namespace CrashCatcher
     {
         public static void Prefix(Map map)
         {
+            TelemetryRecorder.RecordPhase("Live map generated", map?.Parent?.Label ?? map?.ToString());
             CrashCatcherHooks.TryLatchPendingTextureWarning();
             if (FirstTickGuard.crashLatched)
             {
@@ -1132,6 +1141,7 @@ namespace CrashCatcher
     {
         public static void Prefix(Map map)
         {
+            TelemetryRecorder.RecordPhase("Live map removed", map?.Parent?.Label ?? map?.ToString());
             CrashCatcherHooks.TryLatchPendingTextureWarning();
             if (FirstTickGuard.crashLatched)
             {
