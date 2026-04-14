@@ -60,3 +60,7 @@ When a failure is latched, the report includes:
 4. the last 100 calls
 
 That keeps the user-facing timeline and the crash trail together in one place.
+
+## Related screenshot
+
+The current README includes a screenshot of the fail-safe notice that shows the trapped exception text, the report path, and the two exit actions. Use that as a visual reference when comparing telemetry output to the on-screen state.
