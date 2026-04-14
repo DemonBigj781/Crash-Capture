@@ -20,9 +20,10 @@
 		<!-- <li>username.modname</li> -->
 	</incompatibleWith>
 
-	<loadBefore>
-		<li>0Harmony</li>
-	</loadBefore>
+    <loadBefore>
+	  <li>Ludeon.RimWorld</li>
+	  <li>brrainz.harmony</li>
+    </loadBefore>
 	
 	<loadAfter>
 		<li>zetrith.prepatcher</li>
