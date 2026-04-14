@@ -547,6 +547,7 @@ namespace CrashCatcher
     {
         public static void Prefix()
         {
+            TelemetryRecorder.ResetSession();
             TelemetryRecorder.RecordPhase("Main menu entered");
         }
     }
@@ -604,6 +605,53 @@ namespace CrashCatcher
         public static void Prefix()
         {
             TelemetryRecorder.RecordPhase("Placing pawns");
+        }
+    }
+
+    [HarmonyPatch(typeof(RimWorld.Page_ConfigureStartingPawns), "DoNext")]
+    public static class PageConfigureStartingPawnsDoNextTelemetryGuard
+    {
+        public static void Prefix()
+        {
+            TelemetryRecorder.RecordInput("Clicked", "Scenario", "Start");
+            TelemetryRecorder.RecordPhase("Leaving pawn setup");
+        }
+    }
+
+    [HarmonyPatch(typeof(RimWorld.PageUtility), nameof(RimWorld.PageUtility.InitGameStart))]
+    public static class PageUtilityInitGameStartTelemetryGuard
+    {
+        public static void Prefix()
+        {
+            TelemetryRecorder.RecordPhase("Entering generating map long event");
+        }
+    }
+
+    [HarmonyPatch(typeof(Verse.GameInitData), nameof(Verse.GameInitData.PrepForMapGen))]
+    public static class GameInitDataPrepForMapGenTelemetryGuard
+    {
+        public static void Prefix()
+        {
+            TelemetryRecorder.RecordPhase("Preparing map generation");
+        }
+
+        public static void Postfix()
+        {
+            TelemetryRecorder.RecordPhase("Prepared map generation");
+        }
+    }
+
+    [HarmonyPatch(typeof(RimWorld.Scenario), nameof(RimWorld.Scenario.PreMapGenerate))]
+    public static class ScenarioPreMapGenerateTelemetryGuard
+    {
+        public static void Prefix(RimWorld.Scenario __instance)
+        {
+            TelemetryRecorder.RecordPhase("Scenario pre-map generate", __instance?.fileName ?? __instance?.name);
+        }
+
+        public static void Postfix(RimWorld.Scenario __instance)
+        {
+            TelemetryRecorder.RecordPhase("Scenario pre-map generate complete", __instance?.fileName ?? __instance?.name);
         }
     }
 
@@ -3145,6 +3193,7 @@ namespace CrashCatcher
                     pendingTextureWarning = condition;
                 }
 
+                CallTrail.Record("log", "UnityLog", "TextureWarningEscalation");
                 var textureException = new Exception($"Texture warning triggered crash catcher.\n{condition}\n{stackTrace}");
                 CrashCrashHandler.Latch(textureException, "TextureWarningEscalation");
                 return;
@@ -3152,11 +3201,13 @@ namespace CrashCatcher
 
             if (type == LogType.Warning)
             {
+                CallTrail.Record("log", "UnityLog", "UnityLogWarnings");
                 var warningException = new Exception($"Unity warning triggered crash catcher.\n{condition}\n{stackTrace}");
                 CrashCrashHandler.Latch(warningException, "UnityLogWarnings");
                 return;
             }
 
+            CallTrail.Record("log", "UnityLog", "UnityLogHardErrors");
             var hardException = new Exception($"Unity log triggered crash catcher.\n{condition}\n{stackTrace}");
             CrashCrashHandler.Latch(hardException, "UnityLogHardErrors");
         }
