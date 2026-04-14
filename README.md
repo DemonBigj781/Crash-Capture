@@ -130,6 +130,8 @@ The fail-safe notice is intended to stay on screen after a serious failure so th
 
 That layout is deliberate: it keeps the failure visible and gives you a direct exit path without dismissing the evidence first.
 
+![CrashCatcher fail-safe notice](Docs/Images/fail-safe-notice.png)
+
 ## Native crash caveat
 
 CrashCatcher can catch managed exceptions and Unity log failures, but it cannot guarantee recovery from a true native crash or access violation below the managed layer. If RimWorld terminates in `ntdll.dll` or another native module, that usually means the failure is outside the mod's direct control.
