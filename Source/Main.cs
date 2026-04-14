@@ -108,6 +108,12 @@ namespace CrashCatcher
             var listing = new Listing_Standard();
             listing.Begin(inRect);
             var changed = false;
+
+            var previousAutoArmEnabled = settings.AutoArmEnabled;
+            listing.CheckboxLabeled("Auto-arm CrashCatcher (requires restart)", ref settings.AutoArmEnabled);
+            changed |= settings.AutoArmEnabled != previousAutoArmEnabled;
+            listing.GapLine();
+
             listing.Label("CrashCatcher recording settings");
             listing.GapLine();
             var previousRollingCallCount = settings.RollingCallCount;
@@ -164,6 +170,7 @@ namespace CrashCatcher
 
     public sealed class CrashCatcherSettings : ModSettings
     {
+        public bool AutoArmEnabled = true;
         public int RollingCallCount = CrashCatcherConfig.DefaultRollingCallCount;
         public string rollingCallBuffer = CrashCatcherConfig.DefaultRollingCallCount.ToString();
         public List<HookFilterSetting> HookFilters = new List<HookFilterSetting>();
@@ -174,6 +181,7 @@ namespace CrashCatcher
         public override void ExposeData()
         {
             base.ExposeData();
+            Scribe_Values.Look(ref AutoArmEnabled, "AutoArmEnabled", true);
             Scribe_Values.Look(ref RollingCallCount, "RollingCallCount", CrashCatcherConfig.DefaultRollingCallCount);
             Scribe_Values.Look(ref ExceptionTypeIgnoreBuffer, "ExceptionTypeIgnoreBuffer", string.Empty);
             Scribe_Values.Look(ref ExceptionMessageIgnoreBuffer, "ExceptionMessageIgnoreBuffer", string.Empty);
@@ -215,6 +223,7 @@ namespace CrashCatcher
 
         internal void ResetToDefaults()
         {
+            AutoArmEnabled = true;
             RollingCallCount = CrashCatcherConfig.DefaultRollingCallCount;
             rollingCallBuffer = RollingCallCount.ToString();
             ExceptionTypeIgnoreBuffer = string.Empty;
@@ -494,6 +503,14 @@ namespace CrashCatcher
         {
             try
             {
+                var mod = LoadedModManager.GetMod<CrashCatcherMod>();
+                var settings = mod?.GetSettings<CrashCatcherSettings>();
+                if (settings != null && !settings.AutoArmEnabled)
+                {
+                    Log.Message("[CrashCatcher] Auto-arm disabled; running passive (no hooks installed).");
+                    return;
+                }
+
                 CrashCatcherHooks.Install();
                 var harmony = new Harmony("JellyCreative.CrashCatcher");
                 harmony.PatchAll(Assembly.GetExecutingAssembly());

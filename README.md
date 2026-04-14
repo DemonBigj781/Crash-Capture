@@ -29,6 +29,8 @@ It also includes a save dry-run gate that checks whether the save pipeline can c
 
 The mod is useful as a debug tool, but it is invasive by design. It should be treated as a troubleshooting aid rather than a quiet always-on gameplay mod.
 
+By default, CrashCatcher uses a safer, conservative profile (fewer detectors enabled). You can opt into broader capture using the per-hook toggles.
+
 To reduce noise, the mod includes:
 
 - per-hook enable and disable toggles
@@ -39,6 +41,11 @@ To reduce noise, the mod includes:
 ## Settings
 
 CrashCatcher exposes the following settings in-game:
+
+- `Auto-arm CrashCatcher`
+  - When enabled, CrashCatcher installs its runtime hooks automatically on load (including fail-safe behavior).
+  - When disabled, CrashCatcher loads passively and does not install hooks. This is useful when you want the mod present but inert.
+  - Note: changing this requires a restart to fully take effect, because hook installation happens during startup.
 
 - `Rolling call count`
   - Controls how many recent calls are kept in the report trail
