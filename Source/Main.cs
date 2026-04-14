@@ -3127,7 +3127,30 @@ namespace CrashCatcher
         internal static void RequestQuit()
         {
             Interlocked.Exchange(ref quitRequestArmed, 1);
+            Log.Message("[CrashCatcher] Close game requested.");
             Application.Quit();
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                try
+                {
+                    Thread.Sleep(1500);
+                    if (Interlocked.Exchange(ref quitRequestArmed, 0) == 1)
+                    {
+                        Log.Warning("[CrashCatcher] Close game fallback forcing process exit.");
+                        Environment.Exit(0);
+                    }
+                }
+                catch
+                {
+                    try
+                    {
+                        Environment.Exit(0);
+                    }
+                    catch
+                    {
+                    }
+                }
+            });
         }
 
         private static bool OnWantsToQuit()

@@ -109,6 +109,8 @@ The report includes:
 - save-related breadcrumbs
 - the current crash state context
 
+When the fail-safe is working, the in-game notice stays up with the crash summary and the report path visible so you can capture or review it before exiting. A typical example is the texture-compression failure notice shown in the documented screenshot from the current test session.
+
 Suppressed detections are also written to a separate audit log so you can see what was ignored or disabled later.
 
 The telemetry streams that feed those reports are kept in the same CrashCatcher folder and are folded into the crash output:
@@ -117,6 +119,16 @@ The telemetry streams that feed those reports are kept in the same CrashCatcher 
 - load-phase telemetry
 
 That gives you both the last user actions and the last load milestones alongside the crash trail instead of forcing you to reconstruct the timeline from the main log alone.
+
+## Notice screenshot
+
+The fail-safe notice is intended to stay on screen after a serious failure so the crash summary remains visible. In the current test session, the notice showed:
+
+- the trapped exception message
+- the report path
+- the `Open report folder` and `Close game` actions
+
+That layout is deliberate: it keeps the failure visible and gives you a direct exit path without dismissing the evidence first.
 
 ## Native crash caveat
 
