@@ -111,6 +111,13 @@ The report includes:
 
 Suppressed detections are also written to a separate audit log so you can see what was ignored or disabled later.
 
+The telemetry streams that feed those reports are kept in the same CrashCatcher folder and are folded into the crash output:
+
+- input/menu telemetry
+- load-phase telemetry
+
+That gives you both the last user actions and the last load milestones alongside the crash trail instead of forcing you to reconstruct the timeline from the main log alone.
+
 ## Native crash caveat
 
 CrashCatcher can catch managed exceptions and Unity log failures, but it cannot guarantee recovery from a true native crash or access violation below the managed layer. If RimWorld terminates in `ntdll.dll` or another native module, that usually means the failure is outside the mod's direct control.
