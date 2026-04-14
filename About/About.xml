@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+	<packageId>jellycreative.crashcatcher</packageId>
+	<name>CrashCatcher</name>
+	<author>user</author>
+	<!-- <modIconPath>path/to/icon</modIconPath> -->
+	<supportedVersions>
+		<li>1.6</li>
+	</supportedVersions>
+
+	<modDependencies>
+		<li>
+			<packageId>zetrith.prepatcher</packageId>
+			<displayName>Prepatcher</displayName>
+			<steamWorkshopUrl>steam://url/CommunityFilePage/2894669348</steamWorkshopUrl>
+		</li>
+	</modDependencies>
+
+	<incompatibleWith>
+		<!-- <li>username.modname</li> -->
+	</incompatibleWith>
+
+	<loadBefore>
+		<li>0Harmony</li>
+	</loadBefore>
+	
+	<loadAfter>
+		<li>zetrith.prepatcher</li>
+	</loadAfter>
+
+	<description>CrashCatcher is a configurable crash freezer and save validator. It records a rolling call trail, can freeze on serious failures, and writes a dedicated report so you can diagnose what happened without losing the trail.</description>
+</ModMetaData>
