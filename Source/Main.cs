@@ -615,6 +615,43 @@ namespace CrashCatcher
         {
             TelemetryRecorder.RecordInput("Clicked", "Scenario", "Start");
             TelemetryRecorder.RecordPhase("Leaving pawn setup");
+            CallTrail.Record("scenario", "Page_ConfigureStartingPawns.DoNext", "scenario intro accepted");
+        }
+
+        public static void Postfix()
+        {
+            TelemetryRecorder.RecordPhase("Left pawn setup");
+            CallTrail.Record("scenario", "Page_ConfigureStartingPawns.DoNext", "scenario intro transition queued");
+        }
+    }
+
+    [HarmonyPatch(typeof(RimWorld.Page_SelectScenario), nameof(RimWorld.Page_SelectScenario.BeginScenarioConfiguration))]
+    public static class PageSelectScenarioBeginScenarioConfigurationTelemetryGuard
+    {
+        public static void Prefix(RimWorld.Scenario scen)
+        {
+            TelemetryRecorder.RecordPhase("Scenario selected", scen?.fileName ?? scen?.name);
+            CallTrail.Record("scenario", "Page_SelectScenario.BeginScenarioConfiguration", scen?.fileName ?? scen?.name);
+        }
+
+        public static void Postfix(RimWorld.Scenario scen)
+        {
+            TelemetryRecorder.RecordPhase("Scenario configuration started", scen?.fileName ?? scen?.name);
+        }
+    }
+
+    [HarmonyPatch(typeof(RimWorld.Page_SelectStartingSite), "DoNext")]
+    public static class PageSelectStartingSiteDoNextTelemetryGuard
+    {
+        public static void Prefix()
+        {
+            TelemetryRecorder.RecordPhase("Starting site accepted");
+            CallTrail.Record("scenario", "Page_SelectStartingSite.DoNext", "starting site confirmed");
+        }
+
+        public static void Postfix()
+        {
+            TelemetryRecorder.RecordPhase("Starting site transition queued");
         }
     }
 
@@ -624,6 +661,12 @@ namespace CrashCatcher
         public static void Prefix()
         {
             TelemetryRecorder.RecordPhase("Entering generating map long event");
+            CallTrail.Record("scenario", "PageUtility.InitGameStart", "generating map long event queued");
+        }
+
+        public static void Postfix()
+        {
+            TelemetryRecorder.RecordPhase("Generating map long event queued");
         }
     }
 
@@ -633,11 +676,13 @@ namespace CrashCatcher
         public static void Prefix()
         {
             TelemetryRecorder.RecordPhase("Preparing map generation");
+            CallTrail.Record("scenario", "GameInitData.PrepForMapGen", "pre-map generation started");
         }
 
         public static void Postfix()
         {
             TelemetryRecorder.RecordPhase("Prepared map generation");
+            CallTrail.Record("scenario", "GameInitData.PrepForMapGen", "pre-map generation complete");
         }
     }
 
@@ -647,11 +692,13 @@ namespace CrashCatcher
         public static void Prefix(RimWorld.Scenario __instance)
         {
             TelemetryRecorder.RecordPhase("Scenario pre-map generate", __instance?.fileName ?? __instance?.name);
+            CallTrail.Record("scenario", "Scenario.PreMapGenerate", __instance?.fileName ?? __instance?.name);
         }
 
         public static void Postfix(RimWorld.Scenario __instance)
         {
             TelemetryRecorder.RecordPhase("Scenario pre-map generate complete", __instance?.fileName ?? __instance?.name);
+            CallTrail.Record("scenario", "Scenario.PreMapGenerate", $"completed:{__instance?.fileName ?? __instance?.name}");
         }
     }
 
@@ -3216,6 +3263,7 @@ namespace CrashCatcher
                     pendingTextureWarning = condition;
                 }
 
+                TelemetryRecorder.RecordPhase("Unity log texture warning", condition);
                 CallTrail.Record("log", "UnityLog", "TextureWarningEscalation");
                 var textureException = new Exception($"Texture warning triggered crash catcher.\n{condition}\n{stackTrace}");
                 CrashCrashHandler.Latch(textureException, "TextureWarningEscalation");
@@ -3224,12 +3272,14 @@ namespace CrashCatcher
 
             if (type == LogType.Warning)
             {
+                TelemetryRecorder.RecordPhase("Unity log warning", condition);
                 CallTrail.Record("log", "UnityLog", "UnityLogWarnings");
                 var warningException = new Exception($"Unity warning triggered crash catcher.\n{condition}\n{stackTrace}");
                 CrashCrashHandler.Latch(warningException, "UnityLogWarnings");
                 return;
             }
 
+            TelemetryRecorder.RecordPhase("Unity log hard error", condition);
             CallTrail.Record("log", "UnityLog", "UnityLogHardErrors");
             var hardException = new Exception($"Unity log triggered crash catcher.\n{condition}\n{stackTrace}");
             CrashCrashHandler.Latch(hardException, "UnityLogHardErrors");
