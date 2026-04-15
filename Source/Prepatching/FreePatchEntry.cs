@@ -12,14 +12,20 @@ namespace CrashCatcher.Prepatching
         [FreePatch]
         public static void Start(ModuleDefinition module)
         {
+            HybridMonitorLauncher.Start();
+            HybridMonitorLauncher.Record("FreePatchEntry.Start entered.");
+
             if (!AutoArmProbe.ShouldAutoArmEarly())
             {
+                HybridMonitorLauncher.Record("Auto-arm disabled; running passive.");
                 CrashCatcherBootstrap.MarkPrepatchSkipped();
                 return;
             }
 
+            HybridMonitorLauncher.Record("Auto-arm enabled; installing hooks.");
             CrashCatcherHooks.Install();
             CrashCatcherBootstrap.MarkPrepatchActive();
+            HybridMonitorLauncher.Record("Prepatch bootstrap active.");
         }
     }
 
@@ -96,12 +102,14 @@ namespace CrashCatcher.Prepatching
         {
             PrepatchActive = true;
             Verse.Log.Message("[CrashCatcher] Prepatch bootstrap active.");
+            HybridMonitorLauncher.Record("Prepatch bootstrap active.");
         }
 
         internal static void MarkPrepatchSkipped()
         {
             PrepatchSkipped = true;
             Verse.Log.Message("[CrashCatcher] Prepatch bootstrap skipped (auto-arm disabled).");
+            HybridMonitorLauncher.Record("Prepatch bootstrap skipped (auto-arm disabled).");
         }
     }
 }

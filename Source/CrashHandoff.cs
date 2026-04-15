@@ -46,6 +46,7 @@ namespace CrashCatcher
 
             FirstTickGuard.crashLatched = true;
             TickSequenceRecorder.MarkHandedOff(sourceKey, exception);
+            HybridMonitorLauncher.Record($"Crash latched from {sourceKey}.");
             CrashBackdrop.EnsureVisible();
             NativeCrashWriter.Write(exception, sourceKey);
             CrashReportWriter.Write(exception);
@@ -73,6 +74,7 @@ namespace CrashCatcher
             }
 
             installed = true;
+            HybridMonitorLauncher.Record("CrashCatcherHooks.Install begin.");
             crashLatchGate = new ManualResetEventSlim(false);
             watchdogThread = new Thread(WatchdogLoop)
             {
@@ -80,13 +82,21 @@ namespace CrashCatcher
                 Name = "CrashCatcher Watchdog"
             };
             watchdogThread.Start();
+            HybridMonitorLauncher.Record("Watchdog thread started.");
             NativeCrashWriter.InstallLowLevelHooks();
+            HybridMonitorLauncher.Record("Native crash hooks installed.");
             Application.logMessageReceivedThreaded += OnLogMessageReceivedThreaded;
+            HybridMonitorLauncher.Record("Unity log hook installed.");
             AppDomain.CurrentDomain.FirstChanceException += OnFirstChanceException;
+            HybridMonitorLauncher.Record("First-chance exception hook installed.");
             AppDomain.CurrentDomain.ReflectionOnlyAssemblyResolve += OnReflectionOnlyAssemblyResolve;
+            HybridMonitorLauncher.Record("Reflection-only assembly resolve hook installed.");
             AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+            HybridMonitorLauncher.Record("Unhandled exception hook installed.");
             Application.wantsToQuit += OnWantsToQuit;
+            HybridMonitorLauncher.Record("Quit hook installed.");
             Logger.Message("Log hook installed.");
+            HybridMonitorLauncher.Record("CrashCatcherHooks.Install complete.");
         }
 
         private static void WatchdogLoop()

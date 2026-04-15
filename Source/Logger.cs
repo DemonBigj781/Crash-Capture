@@ -33,5 +33,11 @@ namespace CrashCatcher
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             File.WriteAllText(path, contents);
         }
+
+        internal static void AppendAllText(string path, string contents)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.AppendAllText(path, contents);
+        }
     }
 }
