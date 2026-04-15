@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -46,6 +47,7 @@ namespace CrashCatcher
             FirstTickGuard.crashLatched = true;
             TickSequenceRecorder.MarkHandedOff(sourceKey, exception);
             CrashBackdrop.EnsureVisible();
+            NativeCrashWriter.Write(exception, sourceKey);
             CrashReportWriter.Write(exception);
             PauseNotice.Queue(exception);
             CrashCatcherHooks.OpenWatchdogGate();
@@ -78,7 +80,9 @@ namespace CrashCatcher
                 Name = "CrashCatcher Watchdog"
             };
             watchdogThread.Start();
+            NativeCrashWriter.InstallLowLevelHooks();
             Application.logMessageReceivedThreaded += OnLogMessageReceivedThreaded;
+            AppDomain.CurrentDomain.FirstChanceException += OnFirstChanceException;
             AppDomain.CurrentDomain.ReflectionOnlyAssemblyResolve += OnReflectionOnlyAssemblyResolve;
             AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
             Application.wantsToQuit += OnWantsToQuit;
@@ -106,6 +110,28 @@ namespace CrashCatcher
             {
                 CrashCrashHandler.Latch(exception, "UnhandledException");
             }
+        }
+
+        private static void OnFirstChanceException(object sender, FirstChanceExceptionEventArgs e)
+        {
+            if (FirstTickGuard.crashLatched || e?.Exception == null)
+            {
+                return;
+            }
+
+            var sourceKey = CrashCatcherFilters.ResolveKeyFromStack();
+            if (string.IsNullOrWhiteSpace(sourceKey) || string.Equals(sourceKey, "UnknownDetector", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (!CrashCatcherFilters.ShouldLatch(sourceKey, e.Exception))
+            {
+                return;
+            }
+
+            CallTrail.Record("first-chance", sourceKey, e.Exception.GetType().Name);
+            CrashCrashHandler.Latch(e.Exception, sourceKey);
         }
 
         private static Assembly OnReflectionOnlyAssemblyResolve(object sender, ResolveEventArgs args)
@@ -374,11 +400,63 @@ namespace CrashCatcher
                     builder.AppendLine(line);
                 }
                 Logger.WriteAllText(LastReportPath, builder.ToString());
+                CrashCatcherListWriter.Write(dir);
                 StackTraceWriter.Write(dir);
             }
             catch (Exception ex)
             {
                 Logger.Error(ex, "Failed to write crash report");
+            }
+        }
+    }
+
+    internal static class CrashCatcherListWriter
+    {
+        internal static string LastReportPath { get; private set; }
+
+        internal static void Write(string dir)
+        {
+            try
+            {
+                LastReportPath = Path.Combine(dir, "Lists.log");
+                var builder = new System.Text.StringBuilder();
+                builder.AppendLine("CrashCatcher shared lists snapshot");
+                builder.AppendLine($"Generated: {DateTime.Now:O}");
+                builder.AppendLine();
+                builder.AppendLine("--- Source lists ---");
+                foreach (var line in CrashCatcherSourceLists.Ordered)
+                {
+                    builder.AppendLine(line);
+                }
+                builder.AppendLine();
+                builder.AppendLine("--- Telemetry defs ---");
+                foreach (var line in ListTelemetryDefs.Ordered)
+                {
+                    builder.AppendLine(line);
+                }
+                builder.AppendLine();
+                builder.AppendLine("--- Crash handoff markers ---");
+                foreach (var line in CrashHandoffMarkers.Ordered)
+                {
+                    builder.AppendLine(line);
+                }
+                builder.AppendLine();
+                builder.AppendLine("--- Interrupt defs ---");
+                foreach (var line in ListInterruptDef.Ordered)
+                {
+                    builder.AppendLine(line);
+                }
+                builder.AppendLine();
+                builder.AppendLine("--- Tick capture priority ---");
+                foreach (var line in TickCapturePriority.Ordered)
+                {
+                    builder.AppendLine(line);
+                }
+                Logger.WriteAllText(LastReportPath, builder.ToString());
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Failed to write list snapshot");
             }
         }
     }
